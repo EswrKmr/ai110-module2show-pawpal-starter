@@ -6,11 +6,14 @@
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
+I chose four classes. Task holds one care activity (title, duration, priority, category, completion status). Pet holds a pet’s details and its list of tasks. Owner holds the owner’s time budget and preferences, and manages their pets. Scheduler is the “brain”: it gathers the owner’s pending tasks and builds a priority-ordered daily plan that fits the available time, then explains its choices. I used dataclasses for Task, Pet, and Owner since they mostly store data, and kept Scheduler a regular class since it mainly holds behavior.
 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+
+After reviewing my skeleton, I made three changes. First, I added a pet_name field to Task because Owner.get_all_tasks() combines tasks from every pet, and without it the plan couldn’t say which pet a task was for. Second, I gave Scheduler a skipped_tasks list, since explain_plan() needs to say why tasks were left out and not only why others were chosen. Third, I added validation for priority so a misspelled value fails immediately instead of silently ranking wrong. I considered adding a separate ScheduledItem class to hold start times but decided to defer it to keep the design simple.
 
 ---
 
