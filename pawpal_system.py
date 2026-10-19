@@ -131,11 +131,22 @@ class Scheduler:
 
     # --------------------------------------------------------------- recurrence
     def mark_task_complete(self, task: Task) -> Optional[Task]:
-        """Complete a task; if it is daily/weekly, add the next occurrence to the same pet and return it."""
-        task.mark_complete()
+        """Complete a task; if it is daily/weekly, add the next occurrence to the same pet and return it.
+
+        Returns None for one-off tasks and for tasks that were already completed (so a double
+        click can't create duplicate follow-ups). Raises ValueError if a recurring task
+        doesn't belong to any of the owner's pets.
+        """
+        if task.completed:
+            return None
         follow_up = task.next_occurrence()
+        pet = None
         if follow_up is not None:
-            pet = next(p for p in self.owner.pets if p.name == task.pet_name)
+            pet = next((p for p in self.owner.pets if p.name == task.pet_name), None)
+            if pet is None:
+                raise ValueError(f"'{task.description}' is not attached to any of {self.owner.name}'s pets")
+        task.mark_complete()
+        if pet is not None:
             pet.add_task(follow_up)
         return follow_up
 

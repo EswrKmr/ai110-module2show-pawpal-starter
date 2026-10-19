@@ -107,4 +107,31 @@ Describe your app in numbered steps so a reader can follow along without watchin
 4. <!-- Describe this step -->
 5. <!-- Add more steps as needed -->
 
+## Testing PawPal+
+
+Run the full suite from the project folder:
+
+```bash
+python -m pytest
+```
+
+The 35 tests cover:
+
+- **Sorting:** chronological order, unpadded times like `7:30`, midnight and 23:59, due-date ordering, and empty lists
+- **Filtering:** by pet, by status, by both, unknown pets, and pets with no tasks
+- **Recurrence:** daily (+1 day) and weekly (+7 days), month and year rollover, copied task details, one-off tasks, completing twice, and unattached tasks
+- **Conflicts:** same time across pets and within one pet, three-way conflicts, different days, and completed tasks
+- **Planning:** priority-first selection, time-ordered output, exact-fit tasks, zero available minutes, ties, overdue tasks, and skipped-task reporting
+- **Validation:** bad priorities, frequencies, and times are rejected
+
+Sample test output:
+
+```
+<!-- paste your real `python -m pytest` output here -->
+```
+
+**Confidence Level:(4/5)**
+
+The scheduling logic is well covered, including edge cases that exposed two real bugs, and all tests pass. I stopped at four stars because the Streamlit UI has no automated tests, conflict detection only compares exact start times and not overlapping durations, and the greedy planner doesn't search for the best combination of tasks.
+
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
