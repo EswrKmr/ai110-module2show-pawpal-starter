@@ -107,6 +107,29 @@ for pet in owner.pets:
         ])
 
 # ---------------------------------------------------------------------------
+# Conflict warnings -> Scheduler.detect_conflicts()
+# ---------------------------------------------------------------------------
+for warning in Scheduler(owner).detect_conflicts():
+    st.warning(warning)
+
+# ---------------------------------------------------------------------------
+# Complete a task -> Scheduler.mark_task_complete() (daily/weekly tasks repeat)
+# ---------------------------------------------------------------------------
+pending = Scheduler(owner).get_pending_tasks()
+if pending:
+    st.subheader("Complete a task")
+    with st.form("complete_task_form"):
+        labels = [f"{t.time}  {t.description} ({t.pet_name}) - due {t.due_date}" for t in pending]
+        choice = st.selectbox("Which task is done?", labels)
+        if st.form_submit_button("Mark complete"):
+            done = pending[labels.index(choice)]
+            follow_up = Scheduler(owner).mark_task_complete(done)
+            if follow_up:
+                st.success(f"Done! Next '{done.description}' is scheduled for {follow_up.due_date}.")
+            else:
+                st.success(f"Done! '{done.description}' is complete.")
+
+# ---------------------------------------------------------------------------
 # Generate the plan -> Scheduler(owner).generate_daily_plan()
 # ---------------------------------------------------------------------------
 st.subheader("Today's schedule")
