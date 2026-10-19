@@ -18,8 +18,6 @@ the time you have and explains what it chose.
 """
     )
 
-st.divider()
-
 # ---------------------------------------------------------------------------
 # Application "memory": Streamlit reruns this whole script on every click, so
 # the Owner is stored in st.session_state and only created if it isn't there yet.
@@ -28,6 +26,35 @@ if "owner" not in st.session_state:
     st.session_state.owner = Owner(name="Jordan", available_minutes=90)
 
 owner: Owner = st.session_state.owner
+scheduler = Scheduler(owner)  # cheap to build; always reads the owner's current data
+
+
+def load_sample_data() -> None:
+    """Fill an empty owner with two pets and a few tasks (two share 08:00 to show a conflict)."""
+    biscuit, mochi = Pet("Biscuit", "dog", age=4), Pet("Mochi", "cat", age=2)
+    owner.add_pet(biscuit)
+    owner.add_pet(mochi)
+    biscuit.add_task(Task("Grooming", "19:00", 40, "weekly", "low"))
+    biscuit.add_task(Task("Vet check-in", "08:00", 15, "once", "high"))
+    biscuit.add_task(Task("Morning walk", "07:30", 30, "daily", "high"))
+    mochi.add_task(Task("Play time", "18:00", 20, "daily", "medium"))
+    mochi.add_task(Task("Breakfast", "08:00", 10, "daily", "high"))
+    mochi.add_task(Task("Medication", "12:00", 5, "daily", "high"))
+
+
+with st.sidebar:
+    st.header("Try it quickly")
+    if st.button("Load sample data"):
+        if owner.pets:
+            st.warning("Sample data only loads into an empty owner. Remove your pets by refreshing the page.")
+        else:
+            load_sample_data()
+            st.session_state.flash = "Loaded two pets and six tasks."
+            st.rerun()
+
+# A message saved before a rerun, so it survives the page refresh.
+if "flash" in st.session_state:
+    st.success(st.session_state.pop("flash"))
 
 # ---------------------------------------------------------------------------
 # Owner info
@@ -91,57 +118,75 @@ else:
                     st.error(str(err))
 
 # ---------------------------------------------------------------------------
-# Show what's currently stored in memory
+# Your tasks: sorted by time (Scheduler.sort_by_time) and filtered
+# (Scheduler.filter_tasks), with conflict warnings (Scheduler.detect_conflicts)
 # ---------------------------------------------------------------------------
-st.subheader("Your pets and tasks")
-if not owner.pets:
-    st.write("No pets yet.")
-for pet in owner.pets:
-    st.markdown(f"**{pet.name}** ({pet.species}, age {pet.age}) - {len(pet.tasks)} task(s)")
-    if pet.tasks:
+st.subheader("Your tasks")
+if not scheduler.get_all_tasks():
+    st.info("No tasks yet. Add a pet and a task above, or load the sample data from the sidebar.")
+else:
+    # Conflicts first, so the owner sees problems before reading the table.
+    conflicts = scheduler.detect_conflicts()
+    if conflicts:
+        for message in conflicts:
+            st.warning(f"{message}\n\nYou can't do both at once, so consider moving one of them to a different time.")
+    else:
+        st.success("No scheduling conflicts.")
+
+    f1, f2 = st.columns(2)
+    pet_choice = f1.selectbox("Show pet", ["All pets"] + [p.name for p in owner.pets])
+    status_choice = f2.radio("Show status", ["Pending", "Completed", "All"], horizontal=True)
+    shown = scheduler.filter_tasks(
+        pet_name=None if pet_choice == "All pets" else pet_choice,
+        completed={"Pending": False, "Completed": True, "All": None}[status_choice],
+    )
+    shown = scheduler.sort_by_time(shown)
+    if shown:
         st.table([
-            {"Time": t.time, "Task": t.description, "Min": t.duration_minutes,
-             "Frequency": t.frequency, "Priority": t.priority,
-             "Done": "yes" if t.completed else "no"}
-            for t in sorted(pet.tasks, key=lambda t: t.time)
+            {"Date": str(t.due_date), "Time": t.time, "Pet": t.pet_name, "Task": t.description,
+             "Min": t.duration_minutes, "Priority": t.priority, "Repeats": t.frequency,
+             "Status": "✅ done" if t.completed else "⏳ pending"}
+            for t in shown
         ])
+    else:
+        st.info("No tasks match that filter.")
+
+    # -----------------------------------------------------------------------
+    # Complete a task -> Scheduler.mark_task_complete() (daily/weekly tasks repeat)
+    # -----------------------------------------------------------------------
+    pending = scheduler.get_pending_tasks()
+    if pending:
+        st.markdown("**Mark a task complete**")
+        with st.form("complete_task_form"):
+            labels = [f"{t.due_date}  {t.time}  {t.description} ({t.pet_name})" for t in pending]
+            choice = st.selectbox("Which task is done?", labels)
+            if st.form_submit_button("Mark complete"):
+                done = pending[labels.index(choice)]
+                follow_up = scheduler.mark_task_complete(done)
+                if follow_up:
+                    st.session_state.flash = (
+                        f"Done! Next '{done.description}' for {done.pet_name} is scheduled for {follow_up.due_date}.")
+                else:
+                    st.session_state.flash = f"Done! '{done.description}' is complete."
+                st.rerun()  # redraw so the table above shows the new status
 
 # ---------------------------------------------------------------------------
-# Conflict warnings -> Scheduler.detect_conflicts()
-# ---------------------------------------------------------------------------
-for warning in Scheduler(owner).detect_conflicts():
-    st.warning(warning)
-
-# ---------------------------------------------------------------------------
-# Complete a task -> Scheduler.mark_task_complete() (daily/weekly tasks repeat)
-# ---------------------------------------------------------------------------
-pending = Scheduler(owner).get_pending_tasks()
-if pending:
-    st.subheader("Complete a task")
-    with st.form("complete_task_form"):
-        labels = [f"{t.time}  {t.description} ({t.pet_name}) - due {t.due_date}" for t in pending]
-        choice = st.selectbox("Which task is done?", labels)
-        if st.form_submit_button("Mark complete"):
-            done = pending[labels.index(choice)]
-            follow_up = Scheduler(owner).mark_task_complete(done)
-            if follow_up:
-                st.success(f"Done! Next '{done.description}' is scheduled for {follow_up.due_date}.")
-            else:
-                st.success(f"Done! '{done.description}' is complete.")
-
-# ---------------------------------------------------------------------------
-# Generate the plan -> Scheduler(owner).generate_daily_plan()
+# Today's schedule -> Scheduler.generate_daily_plan() / explain_plan()
 # ---------------------------------------------------------------------------
 st.subheader("Today's schedule")
 if st.button("Generate schedule"):
-    scheduler = Scheduler(owner)
     plan = scheduler.generate_daily_plan()
     if not plan:
-        st.warning("No tasks to schedule yet.")
+        st.warning("Nothing to schedule today. Add some tasks, or check your available minutes.")
     else:
+        used = sum(t.duration_minutes for t in plan)
+        st.success(f"Planned {len(plan)} task(s): {used} of {owner.available_minutes} available minutes.")
         st.table([
             {"Time": t.time, "Pet": t.pet_name, "Task": t.description,
              "Min": t.duration_minutes, "Priority": t.priority}
             for t in plan
         ])
-        st.text(scheduler.explain_plan())
+        for task, reason in scheduler.skipped_tasks:
+            st.info(f"Skipped '{task.description}' ({task.pet_name}): {reason}.")
+        with st.expander("Why this plan?"):
+            st.text(scheduler.explain_plan())

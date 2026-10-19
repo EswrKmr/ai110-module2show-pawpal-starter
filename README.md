@@ -101,11 +101,13 @@ tests/test_pawpal.py ...........                                                
 
 Describe your app in numbered steps so a reader can follow along without watching a video:
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+Set your name and how many minutes you have available today
+Add pets (name, species, age)
+Add tasks to a pet (description, time, duration, frequency, priority)
+See all tasks sorted by time, and filter them by pet and by status
+See a warning whenever two pending tasks share a start time
+Mark tasks complete (daily and weekly tasks reappear for the next day or week)
+Generate today's schedule, with a summary, skipped tasks, and an explanation
 
 ## Testing PawPal+
 
@@ -127,7 +129,14 @@ The 35 tests cover:
 Sample test output:
 
 ```
-<!-- paste your real `python -m pytest` output here -->
+platform darwin -- Python 3.14.3, pytest-9.1.1, pluggy-1.7.0
+rootdir: /Users/eashukumar/Downloads/ai110-module2show-pawpal-starter-main
+plugins: anyio-4.15.1
+collected 35 items                                                                                                                                   
+
+tests/test_pawpal.py ...................................                                                                                       [100%]
+
+================================================================= 35 passed in 0.04s =
 ```
 
 **Confidence Level:(4/5)**
